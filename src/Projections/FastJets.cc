@@ -661,13 +661,13 @@ namespace Rivet {
 
       if(dummyp.size() > most_prominent) {
         vector<ACFpeak> newdummy;
-	int assign = -1;
 	for(unsigned int j = 0; j < most_prominent; j++) {
+	  int assign = -1;
 	  double prom = 0.;
           for(unsigned int k = 0; k < dummyp.size(); k++) {
 	    if(dummyp[k].prominence > prom){assign = k; prom = dummyp[k].prominence;}
 	    }
-	  newdummy.push_back(dummyp[assign]);
+	  if(assign != -1)newdummy.push_back(dummyp[assign]);
 	  dummyp[assign].prominence = 0.;
 	  }
 	return newdummy;
