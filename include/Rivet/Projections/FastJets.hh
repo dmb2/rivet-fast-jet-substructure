@@ -27,8 +27,30 @@
 #include "fastjet/JadePlugin.hh"
 //#include "fastjet/PxConePlugin.hh"
 
+
 namespace Rivet {
 
+  /// structs used in angular correlation calculations
+  struct ACFparticlepair {
+    double deltaR;
+    double weight;
+  };
+
+  struct ACFpeak {
+    double Rval;
+    double height;
+    double prominence;
+    double partialmass;
+    int index;
+  };
+
+  struct ppsortfunction { bool operator()
+	(ACFparticlepair a, ACFparticlepair b) { return (a.deltaR < b.deltaR); } };
+
+  struct ACFfunction {
+    double Rval;
+    double value;
+  };
 
   /// Make a 3-momentum vector from a FastJet pseudo-jet
   inline Vector3 momentum3(const fastjet::PseudoJet& pj) {
@@ -204,19 +226,34 @@ namespace Rivet {
 
     /// Get N=n_jets subjets to be used for finding N-subjettiness
     /// Thaler, Van Tilburg, arXiv:1011.2268
-    PseudoJets GetAxes(int n_jets, 
-			PseudoJets inputJets, JetAlgName subjet_def, double subR) const;
+    PseudoJets GetAxes(unsigned int n_jets, 
+			PseudoJets& inputJets, JetAlgName subjet_def, double subR) const;
 
     /// Get the N-subjettiness with respect to the subjet axes.
     /// Thaler, Van Tilburg, arXiv:1011.2268
     double TauValue(double beta, double jet_rad, 
-	PseudoJets particles, PseudoJets axes) const;
+	PseudoJets& particles, PseudoJets& axes) const;
 
     /// Update axes towards Tau(y, phi) minimum.
     /// Thaler, Van Tilburg, arxiv:1108.2701
-    PseudoJets UpdateAxes(double beta,
-	PseudoJets particles, PseudoJets axes) const;
+    void UpdateAxes(double beta,
+	PseudoJets& particles, PseudoJets& axes) const;
 
+    /// Find peaks in Angular Structure Function for the given particles
+    /// Jankowiak, Larkowski, arxiv:1104.1646
+    /// Based on code by Jankowiak and Larkowski
+    vector<ACFpeak> ASFPeaks(PseudoJets& particles,
+		unsigned int most_prominent, double minprominence) const;
+
+    /// Return 2D vector representing the ACF from delta R = 0 to delta R = R_max
+    /// Jankowiak, Larkowski, arxiv:1104.1646
+    /// Based on code by Jankowiak and Larkowski
+    vector<ACFfunction> ACFValues(PseudoJets& particles) const;
+
+    /// Return 2D vector representing the ASF from delta R = 0 to delta R = R_max
+    /// Jankowiak, Larkowski, arxiv:1104.1646
+    /// Based on code by Jankowiak and Larkowski
+    vector<ACFfunction> ASFValues(PseudoJets& particles) const;
 
   private:
 
@@ -243,7 +280,14 @@ namespace Rivet {
 
 
   private:
+
     fastjet::JetAlgorithm setJetAlgorithm(FastJets::JetAlgName subJetAlgorithm) const;
+
+    bool FuzzyEquals(double a, double b) const;
+
+    double KeyColToRight(int p, vector<ACFpeak> peaks, vector<double> ASF_erf) const;
+
+    double KeyColToLeft(int p, vector<ACFpeak> peaks, vector<double> ASF_erf) const;
 
     /// Jet definition
     fastjet::JetDefinition _jdef;
