@@ -558,7 +558,7 @@ namespace Rivet {
 	xArg = (rVal-pairs[j].deltaR)/sigma;
 
 	//ASF Error Function Denominator: Add pairs weighted by Erf values.
-	eVal += (double)pairs[j].weight*(2.-erfc(xArg))/2.;
+	eVal += (double)pairs[j].weight*(1.+erf(xArg))/2.;
 
 	//ASF Gaussian Numerator: Add pairs weight by Gaussian values.
 	gVal += (double)pairs[j].weight * (exp( - (xArg*xArg)));
@@ -623,7 +623,7 @@ namespace Rivet {
       }
 
 	//Partial mass of peak
-    for (unsigned int p = 0; p < peaks.size(); p++) peaks[p].partialmass = (double)sqrt(gauss_peak[peaks[p].index]);
+    for (unsigned int p = 0; p < peaks.size(); p++) peaks[p].partialmass = (double)sqrt(sqrt(M_PI)*sigma*peaks[p].height*erf_denom[peaks[p].index]/peaks[p].Rval);
 
 	//Prominence of peak
     for (unsigned int k = 0; k < peaks.size(); k++){
