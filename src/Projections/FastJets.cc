@@ -561,7 +561,7 @@ namespace Rivet {
 	eVal += (double)pairs[j].weight*(2.-erfc(xArg))/2.;
 
 	//ASF Gaussian Numerator: Add pairs weight by Gaussian values.
-	gVal += (double)pairs[j].weight * (exp( - (xArg*xArg) / (0.06*0.06))) / sqrt(M_PI * 0.06 * 0.06);
+	gVal += (double)pairs[j].weight * (exp( - (xArg*xArg)));
 
 	}//end pair loop
       ACF[k] = fVal;
@@ -744,7 +744,7 @@ namespace Rivet {
 	eVal += (double)pairs[j].weight*(2.-erfc(xArg))/2.;
 
 	//ASF Gaussian Numerator: Add pairs weight by Gaussian values.
-	gVal += (double)pairs[j].weight * (exp( - (xArg*xArg) / (0.06*0.06))) / sqrt(M_PI * 0.06 * 0.06);
+	gVal += (double)pairs[j].weight * (exp( - (xArg*xArg)));
 
 	}//end pair loop
       ACF[k] = fVal;
@@ -853,7 +853,7 @@ namespace Rivet {
 	eVal += (double)pairs[j].weight*(2.-erfc(xArg))/2.;
 
 	//ASF Gaussian Numerator: Add pairs weight by Gaussian values.
-	gVal += (double)pairs[j].weight * (exp( - (xArg*xArg) / (0.06*0.06))) / sqrt(M_PI * 0.06 * 0.06);
+	gVal += (double)pairs[j].weight * (exp( - (xArg*xArg)));
 
 	}//end pair loop
       ACF[k] = fVal;
