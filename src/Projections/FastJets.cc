@@ -175,11 +175,11 @@ namespace Rivet {
   }
 
   ///\vec{t} ===\Sum_{i\in J} |r_i|p_{Ti}/p_{TJ}\vec{r_i}
-  std::pair<double,double> FastJets::JetPull(const fastjet::PseudoJet &j, const double ptmin=-1*GeV) const {
+  std::pair<double,double> FastJets::JetPull(const fastjet::PseudoJet &j, const double ptmin) const {
     assert(clusterSeq());
     const PseudoJets parts = clusterSeq()->constituents(j);
     const double jetRap = j.rapidity(), jetPhi = j.phi();
-    double ty=0, tphi=0;
+    double ty=0, tphi=0, tmag=0, ttheta=0;
     foreach (const fastjet::PseudoJet& p, parts) {
       if(p.pt() > ptmin) { //pt always > 0, if the user hasn't defined a cut, this will always pass
 	double ptTimesRmag=sqrt(pow(p.rapidity()-jetRap,2) + pow(p.phi()-jetPhi,2))*p.pt();
@@ -188,11 +188,26 @@ namespace Rivet {
       }
     }
     //now parametrize \vec{t}=|t|(cos(\theta_t),sin(\theta_t))
-    return std::pair<double,double>(sqrt(pow(ty/j.pt(),2) + pow(tphi/j.pt(),2)),atan(tphi/ty));
+    tmag=sqrt(pow(ty/j.pt(),2) + pow(tphi/j.pt(),2));
+    if(tmag>0)
+      {
+	ttheta=atan(tphi/ty);
+      }
+    else
+      MSG_ERROR("Couldn't calculate theta_t, tphi:"<<tphi<<" ty:"<<ty);
+
+    //cmath returns theta [-pi/2,pi/2], pull theta is [-pi,pi] so make
+    //sure that the angles in quadrant 2 and 3 have the right value.
+    if(tphi > 0 && ty < 0 && ttheta < 0)
+      ttheta=PI-abs(ttheta);
+    else if(tphi < 0 && ty < 0 && ttheta > 0)
+      ttheta=-PI+ttheta;
+    
+    return std::pair<double,double>(tmag,ttheta);
   }
 
   ///Q===\Sum_{i\in J} q_i*p_{Ti}^k/p_{TJ} 
-  double FastJets::JetCharge(const fastjet::PseudoJet &j, const double k=0.5, const double ptmin=-1*GeV) const {
+  double FastJets::JetCharge(const fastjet::PseudoJet &j, const double k, const double ptmin) const {
     assert(clusterSeq());
     const PseudoJets parts = clusterSeq()->constituents(j);
     double q(0);

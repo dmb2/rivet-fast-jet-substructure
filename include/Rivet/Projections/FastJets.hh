@@ -153,9 +153,9 @@ namespace Rivet {
     /// Calculate Dipolarity of Jet
     double Dipolarity(const fastjet::PseudoJet &j, const double dcut) const;
     // Calculate Pull of Jet
-    std::pair<double,double> JetPull(const fastjet::PseudoJet &j, const double ptmin) const;
+    std::pair<double,double> JetPull(const fastjet::PseudoJet &j, const double ptmin=-1*GeV) const;
     /// Calculate JetCharge
-    double JetCharge(const fastjet::PseudoJet &j, const double k, const double ptmin) const;
+    double JetCharge(const fastjet::PseudoJet &j, const double k=0.5, const double ptmin=-1*GeV) const;
 
     /// Get the jets (unordered).
     Jets _jets(double ptmin = 0.0) const;
