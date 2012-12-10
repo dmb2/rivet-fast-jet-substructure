@@ -26,7 +26,7 @@
 #include "fastjet/TrackJetPlugin.hh"
 #include "fastjet/JadePlugin.hh"
 //#include "fastjet/PxConePlugin.hh"
-
+#include <utility>
 
 namespace Rivet {
 
@@ -152,6 +152,8 @@ namespace Rivet {
 
     /// Calculate Dipolarity of Jet
     double Dipolarity(const fastjet::PseudoJet &j, const double dcut) const;
+    // Calculate Pull of Jet
+    std::pair<double,double> JetPull(const fastjet::PseudoJet &j, const double ptmin) const;
     /// Calculate JetCharge
     double JetCharge(const fastjet::PseudoJet &j, const double k, const double ptmin) const;
 

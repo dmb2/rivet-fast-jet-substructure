@@ -174,6 +174,23 @@ namespace Rivet {
     return D;
   }
 
+  ///\vec{t} ===\Sum_{i\in J} |r_i|p_{Ti}/p_{TJ}\vec{r_i}
+  std::pair<double,double> FastJets::JetPull(const fastjet::PseudoJet &j, const double ptmin=-1*GeV) const {
+    assert(clusterSeq());
+    const PseudoJets parts = clusterSeq()->constituents(j);
+    const double jetRap = j.rapidity(), jetPhi = j.phi();
+    double ty=0, tphi=0;
+    foreach (const fastjet::PseudoJet& p, parts) {
+      if(p.pt() > ptmin) { //pt always > 0, if the user hasn't defined a cut, this will always pass
+	double ptTimesRmag=sqrt(pow(p.rapidity()-jetRap,2) + pow(p.phi()-jetPhi,2))*p.pt();
+	ty+=ptTimesRmag*(p.rapidity()-jetRap);
+	tphi+=ptTimesRmag*(p.phi()-jetPhi);
+      }
+    }
+    //now parametrize \vec{t}=|t|(cos(\theta_t),sin(\theta_t))
+    return std::pair<double,double>(sqrt(pow(ty/j.pt(),2) + pow(tphi/j.pt(),2)),atan(tphi/ty));
+  }
+
   ///Q===\Sum_{i\in J} q_i*p_{Ti}^k/p_{TJ} 
   double FastJets::JetCharge(const fastjet::PseudoJet &j, const double k=0.5, const double ptmin=-1*GeV) const {
     assert(clusterSeq());
