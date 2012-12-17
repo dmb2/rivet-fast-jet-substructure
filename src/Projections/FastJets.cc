@@ -3,6 +3,7 @@
 #include "Rivet/Tools/Logging.hh"
 #include "Rivet/Projections/FastJets.hh"
 #include "Rivet/Tools/ParticleIdUtils.hh"
+#include "Rivet/Math/MathUtils.hh"
 
 namespace Rivet {
 
@@ -179,25 +180,26 @@ namespace Rivet {
     assert(clusterSeq());
     const PseudoJets parts = clusterSeq()->constituents(j);
     const double jetRap = j.rapidity(), jetPhi = j.phi();
-    double ty=0, tphi=0, tmag=0, ttheta=0;
+    double ty=0, tphi=0, tmag=0, ttheta=0, dphi=0;
     foreach (const fastjet::PseudoJet& p, parts) {
+      dphi = mapAngleMPiToPi(p.phi()-jetPhi); //don't generate a large pull for jets at 2pi
       if(p.pt() > ptmin) { //pt always > 0, if the user hasn't defined a cut, this will always pass
-	double ptTimesRmag=sqrt(pow(p.rapidity()-jetRap,2) + pow(p.phi()-jetPhi,2))*p.pt();
+	double ptTimesRmag=sqrt(pow(p.rapidity()-jetRap,2) + pow(dphi,2))*p.pt();//use dphi
 	ty+=ptTimesRmag*(p.rapidity()-jetRap);
-	tphi+=ptTimesRmag*(p.phi()-jetPhi);
+	tphi+=ptTimesRmag*(dphi);//use dphi
       }
     }
     //now parametrize \vec{t}=|t|(cos(\theta_t),sin(\theta_t))
     tmag=sqrt(pow(ty/j.pt(),2) + pow(tphi/j.pt(),2));
-    if(tmag>0)
-      {
+    if(tmag>0) {
 	ttheta=atan(tphi/ty);
       }
     else
       MSG_ERROR("Couldn't calculate theta_t, tphi:"<<tphi<<" ty:"<<ty);
-
+    
     //cmath returns theta [-pi/2,pi/2], pull theta is [-pi,pi] so make
     //sure that the angles in quadrant 2 and 3 have the right value.
+    
     if(tphi > 0 && ty < 0 && ttheta < 0)
       ttheta=PI-abs(ttheta);
     else if(tphi < 0 && ty < 0 && ttheta > 0)
