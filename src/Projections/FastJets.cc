@@ -199,7 +199,6 @@ namespace Rivet {
     
     //cmath returns theta [-pi/2,pi/2], pull theta is [-pi,pi] so make
     //sure that the angles in quadrant 2 and 3 have the right value.
-    
     if(tphi > 0 && ty < 0 && ttheta < 0)
       ttheta=PI-abs(ttheta);
     else if(tphi < 0 && ty < 0 && ttheta > 0)
