@@ -192,18 +192,19 @@ namespace Rivet {
     //now parametrize \vec{t}=|t|(cos(\theta_t),sin(\theta_t))
     tmag=sqrt(pow(ty/j.pt(),2) + pow(tphi/j.pt(),2));
     if(tmag>0) {
-	ttheta=atan(tphi/ty);
-      }
+      ttheta=atan2(tphi,ty);
+    }
     else
       MSG_ERROR("Couldn't calculate theta_t, tphi:"<<tphi<<" ty:"<<ty);
     
     //cmath returns theta [-pi/2,pi/2], pull theta is [-pi,pi] so make
     //sure that the angles in quadrant 2 and 3 have the right value.
-    if(tphi > 0 && ty < 0 && ttheta < 0)
+    if(tphi > 0 && ty < 0 && ttheta < 0){
       ttheta=PI-abs(ttheta);
-    else if(tphi < 0 && ty < 0 && ttheta > 0)
+    }
+    else if(tphi < 0 && ty < 0 && ttheta > 0){
       ttheta=-PI+ttheta;
-    
+    }
     return std::pair<double,double>(tmag,ttheta);
   }
 
