@@ -247,16 +247,6 @@ namespace Rivet {
     vector<ACFpeak> ASFPeaks(PseudoJets& particles,
 		unsigned int most_prominent, double minprominence) const;
 
-    /// Return 2D vector representing the ACF from delta R = 0 to delta R = R_max
-    /// Jankowiak, Larkowski, arxiv:1104.1646
-    /// Based on code by Jankowiak and Larkowski
-    vector<ACFfunction> ACFValues(PseudoJets& particles) const;
-
-    /// Return 2D vector representing the ASF from delta R = 0 to delta R = R_max
-    /// Jankowiak, Larkowski, arxiv:1104.1646
-    /// Based on code by Jankowiak and Larkowski
-    vector<ACFfunction> ASFValues(PseudoJets& particles) const;
-
   private:
 
     Jets _pseudojetsToJets(const PseudoJets& pjets) const;

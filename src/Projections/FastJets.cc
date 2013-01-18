@@ -399,6 +399,8 @@ namespace Rivet {
 
     double tauNum = 0.0;
     double tauDen = 0.0;
+
+    if(particles.size() == 0)return 0.0;
    
     for (unsigned int i = 0; i < particles.size(); i++) {
 
@@ -453,6 +455,8 @@ namespace Rivet {
     for (unsigned int i = 0; i < particles.size(); i++) {
       distphi = particles[i].phi() - axes[belongsto[i]].phi();
       deltaR2 = particles[i].squared_distance(axes[belongsto[i]]);
+
+      if(FuzzyEquals(deltaR2, 0.))continue;
       
       if (abs(distphi) <= M_PI) phinom.at(belongsto[i]) += particles[i].perp() * particles[i].phi() * pow(deltaR2, (beta-2)/2);
       else if ( distphi > M_PI) phinom.at(belongsto[i]) += particles[i].perp() * (-2 * M_PI + particles[i].phi()) * pow(deltaR2, (beta-2)/2);
@@ -547,10 +551,11 @@ namespace Rivet {
     ACFparticlepair dummy;
     for(unsigned int k = 0; k < particles.size(); k++) {
       for(unsigned int j = 0; j < k; j++) {
-	double phidist = particles[k].phi_std() - particles[j].phi_std();
-	if( abs(phidist) > M_PI ) phidist = 2 * M_PI - abs(phidist);
-        dummy.deltaR = sqrt( pow(particles[k].pseudorapidity() - particles[j].pseudorapidity(), 2) +
-		pow(phidist, 2) );
+	double phidist = abs(particles[k].phi_std() - particles[j].phi_std());
+	if( phidist > M_PI ) phidist = 2 * M_PI - phidist;
+        //dummy.deltaR = sqrt( pow(particles[k].pseudorapidity() - particles[j].pseudorapidity(), 2) +
+	//	pow(phidist, 2) );
+	dummy.deltaR = sqrt(particles[k].plain_distance(particles[j]));
 	dummy.weight = particles[k].perp() * particles[j].perp() * dummy.deltaR * dummy.deltaR;
 	pairs.push_back(dummy);
 	}
@@ -558,6 +563,7 @@ namespace Rivet {
 
 	//sort by delta R
     sort(pairs.begin(), pairs.end(), ppsortfunction());
+
     double Rmax = pairs[pairs.size() - 1].deltaR;
 
     double rVal = 0.;
@@ -573,7 +579,7 @@ namespace Rivet {
     double gVal = 0.;
 
 	//mesh loop
-    for (unsigned int k = 0; k < meshsize; k++) {
+    for (unsigned int k = 1; k < meshsize; k++) {
 
       rVal = (double)k*Rmax/(meshsize-1);
       Rvals[k] = rVal;
@@ -589,19 +595,19 @@ namespace Rivet {
 	if (pairs[j].deltaR <= rVal) fVal += pairs[j].weight;
 
 	//Smoothing function argument
-	xArg = (rVal-pairs[j].deltaR)/sigma;
+	xArg = (double)(rVal-pairs[j].deltaR)/sigma;
 
 	//ASF Error Function Denominator: Add pairs weighted by Erf values.
-	eVal += (double)pairs[j].weight*(2.-erfc(xArg))/2.;
+	eVal += (double)pairs[j].weight*0.5*(1.0+erf(xArg));
 
 	//ASF Gaussian Numerator: Add pairs weight by Gaussian values.
-	gVal += (double)pairs[j].weight * (exp( - (xArg*xArg) / (0.06*0.06))) / sqrt(M_PI * 0.06 * 0.06);
+	gVal += (double)pairs[j].weight * (exp( -pow ((abs(xArg)),2.0)));
 
 	}//end pair loop
       ACF[k] = fVal;
       erf_denom[k] = eVal;
       gauss_peak[k] = gVal;
-      ASF_gauss[k] = (double)gVal*rVal/(sigma*sqrt(M_PI)); //Normalized Gaussian value
+      ASF_gauss[k] = (double)gVal*(1/sqrt(M_PI))*rVal/sigma; //Normalized Gaussian value
 
       }//end mesh loop
 
@@ -621,11 +627,13 @@ namespace Rivet {
       else if (k < meshsize - 2) 
         {ASF[k] = (log(ACF[k+1]) - log(jetmass*ACF[k-1]))/(log(Rvals[k+1]) - log(Rvals[k-1]));}
 
-	//Compute gaussian (smoothed) ASF
-        ASF_erf[k] = (FuzzyEquals(erf_denom[k],0.)) ? 0. : ASF_gauss[k]/erf_denom[k];
+      //Compute gaussian (smoothed) ASF
+      ASF_erf[k] = (FuzzyEquals(erf_denom[k],0.)) ? 0. : ASF_gauss[k]/erf_denom[k];
+      //if(erf_denom[k] == 0.0)ASF_erf[k] = 0.0;
+      //else ASF_erf[k] = ASF_gauss[k]/erf_denom[k];
 
-	//Normalize ACF
-        ACF[k] /= jetmass;
+      //Normalize ACF
+      ACF[k] /= jetmass;
 
       }//end mesh loop
 
@@ -657,7 +665,9 @@ namespace Rivet {
       }
 
 	//Partial mass of peak
-    for (unsigned int p = 0; p < peaks.size(); p++) peaks[p].partialmass = (double)sqrt(gauss_peak[peaks[p].index]);
+    for (unsigned int p = 0; p < peaks.size(); p++)peaks[p].partialmass = (double)sqrt(gauss_peak[peaks[p].index]);
+
+	//peaks[p].partialmass = (double)sqrt(sqrt(M_PI)*sigma*peaks[p].height*ACF[peaks[p].index]*jetmass/peaks[p].Rval);
 
 	//Prominence of peak
     for (unsigned int k = 0; k < peaks.size(); k++){
@@ -710,224 +720,6 @@ namespace Rivet {
 
       else return dummyp;
       }
-  }
-
-  vector<ACFfunction> FastJets::ACFValues(PseudoJets& particles) const {
-
-    unsigned int meshsize = 500;
-    double sigma = 0.06;
-
-    vector<ACFfunction> check;
-
-	//sanity check
-    if(particles.size() < 2) {
-      cout << "Not enough particles in jet for ACF." << endl;
-      return check;
-      }
-
-	//pair all particles up
-    vector<ACFparticlepair> pairs;
-    ACFparticlepair dummy;
-    for(unsigned int k = 0; k < particles.size(); k++) {
-      for(unsigned int j = 0; j < k; j++) {
-	double phidist = particles[k].phi_std() - particles[j].phi_std();
-	if( abs(phidist) > M_PI ) phidist = 2 * M_PI - abs(phidist);
-        dummy.deltaR = sqrt( pow(particles[k].pseudorapidity() - particles[j].pseudorapidity(), 2) +
-		pow(phidist, 2) );
-	dummy.weight = particles[k].perp() * particles[j].perp() * dummy.deltaR * dummy.deltaR;
-	pairs.push_back(dummy);
-	}
-      }
-
-	//sort by delta R
-    sort(pairs.begin(), pairs.end(), ppsortfunction());
-    double Rmax = pairs[pairs.size() - 1].deltaR;
-
-    double rVal = 0.;
-    double xArg = 0.;
-    vector<double> ACF(meshsize), ASF_gauss(meshsize), Rvals(meshsize), erf_denom(meshsize), gauss_peak(meshsize);
-    ACF[0] = 0.;
-    ASF_gauss[0] = 0.;
-    Rvals[0] = 0.;
-    erf_denom[0] = 0.;
-    gauss_peak[0] = 0.;
-    double fVal = 0.;
-    double eVal = 0.;
-    double gVal = 0.;
-
-	//mesh loop
-    for (unsigned int k = 0; k < meshsize; k++) {
-
-      rVal = (double)k*Rmax/(meshsize-1);
-      Rvals[k] = rVal;
-
-	//reset
-      fVal = 0.;
-      eVal = 0.;
-      gVal = 0.;
-
-	//Loop on pairs.
-      for (unsigned int j = 0; j < pairs.size(); j++){
-	//ACF-Add pairs within mesh's deltaR.
-	if (pairs[j].deltaR <= rVal) fVal += pairs[j].weight;
-
-	//Smoothing function argument
-	xArg = (rVal-pairs[j].deltaR)/sigma;
-
-	//ASF Error Function Denominator: Add pairs weighted by Erf values.
-	eVal += (double)pairs[j].weight*(2.-erfc(xArg))/2.;
-
-	//ASF Gaussian Numerator: Add pairs weight by Gaussian values.
-	gVal += (double)pairs[j].weight * (exp( - (xArg*xArg) / (0.06*0.06))) / sqrt(M_PI * 0.06 * 0.06);
-
-	}//end pair loop
-      ACF[k] = fVal;
-      erf_denom[k] = eVal;
-      gauss_peak[k] = gVal;
-      ASF_gauss[k] = (double)gVal*rVal/(sigma*sqrt(M_PI)); //Normalized Gaussian value
-
-      }//end mesh loop
-
-    vector<double> ASF_erf(meshsize), ASF(meshsize);
-    ASF[0] = 0.;
-    ASF[meshsize-1] = 0.;
-    ASF_erf[0] = 0.;
-
-	//Total jet mass
-    double jetmass = ACF[meshsize-1];   
-
-	//Second mesh loop
-    for (unsigned int k = 1; k < meshsize; k++){
-
-	//Compute simple (spiked) ASF
-      if (ACF[k-1] == 0.) {ASF[k] = 0.;}
-      else if (k < meshsize - 2) 
-        {ASF[k] = (log(ACF[k+1]) - log(jetmass*ACF[k-1]))/(log(Rvals[k+1]) - log(Rvals[k-1]));}
-
-	//Compute gaussian (smoothed) ASF
-        ASF_erf[k] = (FuzzyEquals(erf_denom[k],0.)) ? 0. : ASF_gauss[k]/erf_denom[k];
-
-	//Normalize ACF
-        ACF[k] /= jetmass;
-
-      }//end mesh loop
-
-    ACFfunction dummyf;
-    for(unsigned int k = 0; k < meshsize; k++) {
-      dummyf.Rval = Rvals[k];
-      dummyf.value = ACF[k];
-      check.push_back(dummyf);
-    }
-    return check;
-  }
-
-  vector<ACFfunction> FastJets::ASFValues(PseudoJets& particles) const {
-
-    unsigned int meshsize = 500;
-    double sigma = 0.06;
-
-    vector<ACFfunction> check;
-
-	//sanity check
-    if(particles.size() < 2) {
-      cout << "Not enough particles in jet for ACF." << endl;
-      return check;
-      }
-
-	//pair all particles up
-    vector<ACFparticlepair> pairs;
-    ACFparticlepair dummy;
-    for(unsigned int k = 0; k < particles.size(); k++) {
-      for(unsigned int j = 0; j < k; j++) {
-	double phidist = particles[k].phi_std() - particles[j].phi_std();
-	if( abs(phidist) > M_PI ) phidist = 2 * M_PI - abs(phidist);
-        dummy.deltaR = sqrt( pow(particles[k].pseudorapidity() - particles[j].pseudorapidity(), 2) +
-		pow(phidist, 2) );
-	dummy.weight = particles[k].perp() * particles[j].perp() * dummy.deltaR * dummy.deltaR;
-	pairs.push_back(dummy);
-	}
-      }
-
-	//sort by delta R
-    sort(pairs.begin(), pairs.end(), ppsortfunction());
-    double Rmax = pairs[pairs.size() - 1].deltaR;
-
-    double rVal = 0.;
-    double xArg = 0.;
-    vector<double> ACF(meshsize), ASF_gauss(meshsize), Rvals(meshsize), erf_denom(meshsize), gauss_peak(meshsize);
-    ACF[0] = 0.;
-    ASF_gauss[0] = 0.;
-    Rvals[0] = 0.;
-    erf_denom[0] = 0.;
-    gauss_peak[0] = 0.;
-    double fVal = 0.;
-    double eVal = 0.;
-    double gVal = 0.;
-
-	//mesh loop
-    for (unsigned int k = 0; k < meshsize; k++) {
-
-      rVal = (double)k*Rmax/(meshsize-1);
-      Rvals[k] = rVal;
-
-	//reset
-      fVal = 0.;
-      eVal = 0.;
-      gVal = 0.;
-
-	//Loop on pairs.
-      for (unsigned int j = 0; j < pairs.size(); j++){
-	//ACF-Add pairs within mesh's deltaR.
-	if (pairs[j].deltaR <= rVal) fVal += pairs[j].weight;
-
-	//Smoothing function argument
-	xArg = (rVal-pairs[j].deltaR)/sigma;
-
-	//ASF Error Function Denominator: Add pairs weighted by Erf values.
-	eVal += (double)pairs[j].weight*(2.-erfc(xArg))/2.;
-
-	//ASF Gaussian Numerator: Add pairs weight by Gaussian values.
-	gVal += (double)pairs[j].weight * (exp( - (xArg*xArg) / (0.06*0.06))) / sqrt(M_PI * 0.06 * 0.06);
-
-	}//end pair loop
-      ACF[k] = fVal;
-      erf_denom[k] = eVal;
-      gauss_peak[k] = gVal;
-      ASF_gauss[k] = (double)gVal*rVal/(sigma*sqrt(M_PI)); //Normalized Gaussian value
-
-      }//end mesh loop
-
-    vector<double> ASF_erf(meshsize), ASF(meshsize);
-    ASF[0] = 0.;
-    ASF[meshsize-1] = 0.;
-    ASF_erf[0] = 0.;
-
-	//Total jet mass
-    double jetmass = ACF[meshsize-1];   
-
-	//Second mesh loop
-    for (unsigned int k = 1; k < meshsize; k++){
-
-	//Compute simple (spiked) ASF
-      if (ACF[k-1] == 0.) {ASF[k] = 0.;}
-      else if (k < meshsize - 2) 
-        {ASF[k] = (log(ACF[k+1]) - log(jetmass*ACF[k-1]))/(log(Rvals[k+1]) - log(Rvals[k-1]));}
-
-	//Compute gaussian (smoothed) ASF
-        ASF_erf[k] = (FuzzyEquals(erf_denom[k],0.)) ? 0. : ASF_gauss[k]/erf_denom[k];
-
-	//Normalize ACF
-        ACF[k] /= jetmass;
-
-      }//end mesh loop
-
-    ACFfunction dummyf;
-    for(unsigned int k = 0; k < meshsize; k++) {
-      dummyf.Rval = Rvals[k];
-      dummyf.value = ASF_erf[k];
-      check.push_back(dummyf);
-    }
-    return check;
   }
 
 }
