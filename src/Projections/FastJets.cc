@@ -181,22 +181,34 @@ namespace Rivet {
     const PseudoJets parts = clusterSeq()->constituents(j);
     const double jetRap = j.rapidity(), jetPhi = j.phi();
     double ty=0, tphi=0, tmag=0, ttheta=0, dphi=0;
-    foreach (const fastjet::PseudoJet& p, parts) {
-      dphi = mapAngleMPiToPi(p.phi()-jetPhi); //don't generate a large pull for jets at 2pi
-      if(p.pt() > ptmin) { //pt always > 0, if the user hasn't defined a cut, this will always pass
-	double ptTimesRmag=sqrt(pow(p.rapidity()-jetRap,2) + pow(dphi,2))*p.pt();//use dphi
-	ty+=ptTimesRmag*(p.rapidity()-jetRap);
-	tphi+=ptTimesRmag*(dphi);//use dphi
+    if(parts.size() > 1) {
+      foreach (const fastjet::PseudoJet& p, parts) {
+	dphi = mapAngleMPiToPi(p.phi()-jetPhi); //don't generate a large pull for jets at 2pi
+	if(p.pt() > ptmin) { //pt always > 0, if the user hasn't defined a cut, this will always pass
+	  double ptTimesRmag=sqrt(pow(p.rapidity()-jetRap,2) + pow(dphi,2))*p.pt();//use dphi
+	  ty+=ptTimesRmag*(p.rapidity()-jetRap);
+	  tphi+=ptTimesRmag*(dphi);//use dphi
+	}
+      }
+      //now parametrize \vec{t}=|t|(cos(\theta_t),sin(\theta_t))
+      tmag=sqrt(pow(ty,2) + pow(tphi,2))/j.pt();
+      if(tmag>0) {
+	ttheta=atan2(tphi,ty);
+      }
+      else {
+	MSG_ERROR("Couldn't calculate ttheta, tphi:"<<tphi<<" ty:"<<ty);
+      }
+      //TODO: REMOVE MSG_ERRORs for final code
+      //I know this is not the correct channel, but DEBUG is swamped
+      //by stuff I'm not interested in...
+      if(tmag > 0.08 ) {
+	MSG_ERROR("Pull Overflow: tmag: "<<tmag<<" ttheta: "<<ttheta<<" tphi: "<<tphi<<" ty: "<<ty);
+	tmag=-1.0;
       }
     }
-    //now parametrize \vec{t}=|t|(cos(\theta_t),sin(\theta_t))
-    tmag=sqrt(pow(ty/j.pt(),2) + pow(tphi/j.pt(),2));
-    if(tmag>0) {
-      ttheta=atan2(tphi,ty);
+    else {
+      MSG_ERROR("Found jet with only one constituent, returning tmag: "<<tmag<<", ttheta: "<<ttheta);
     }
-    else
-      MSG_ERROR("Couldn't calculate theta_t, tphi:"<<tphi<<" ty:"<<ty);
-    
     return std::pair<double,double>(tmag,ttheta);
   }
 
