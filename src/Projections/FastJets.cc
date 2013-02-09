@@ -223,7 +223,7 @@ namespace Rivet {
       if(p.pt() > ptmin) //pt always > 0, if the user hasn't defined a cut, this will always pass
 	q += PID::charge(found->second) * pow(p.pt(),k);       
     }
-    return q/j.pt();
+    return q/pow(j.pt(),k);
   }
 
   // Jets FastJets::jetsByPt(double ptmin) const {
