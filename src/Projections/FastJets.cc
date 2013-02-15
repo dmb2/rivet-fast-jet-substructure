@@ -20,10 +20,11 @@ namespace Rivet {
       case SISCONE:
 	_plugin.reset(new fastjet::SISConePlugin(rparameter, 0.75));
 	break;
-      case PXCONE:
+      case PXCONE:{
 	string msg = "PxCone currently not supported, since FastJet doesn't install it by default. ";
 	msg += "Please notify the Rivet authors if this behaviour should be changed.";
 	throw Error(msg);
+      }
 	break;
       case ATLASCONE:
 	_plugin.reset(new fastjet::ATLASConePlugin(rparameter, seed_threshold, 0.5));
@@ -156,21 +157,38 @@ namespace Rivet {
     return rtn;
   }
 
-  /// D===1/R_{12} \Sum_{i\in J} p_{Ti}/p_{TJ} R_i
-  double FastJets::Dipolarity(const fastjet::PseudoJet &j, const double dcut=0.5) const
-  {
-    assert(clusterSeq());
-    double D(0);
-    PseudoJets subJets=j.validated_cs()->exclusive_subjets(j,dcut);
-    unsigned int nSubJets=j.validated_cs()->n_exclusive_subjets(j,dcut);
-    double denom=j.pt()*pow(subJets.at(0).delta_R(subJets.at(1)),2);
-    if(nSubJets>2)  {
-      //for now take the first two 
-      D+=subJets.at(0).pt()*(pow(subJets.at(0).eta(),2) + pow(subJets.at(0).phi(),2));
-      D+=subJets.at(1).pt()*(pow(subJets.at(1).eta(),2) + pow(subJets.at(1).phi(),2));
-      return D/denom;
-    }
-    return D;
+ /// D===1/R_{12} \Sum_{i\in J} p_{Ti}/p_{TJ} R_i
+  double Dipolarity(const fastjet::PseudoJet &j)  {
+    fastjet::PseudoJet jet1,jet2;
+    if (not (j.has_parents(jet1,jet2))) return -1;//not ideal axes                                                                                          
+    double dipolarity(0.0);
+    double sumpt(0.0);
+
+    double deta(jet2.eta() - jet1.eta()), dphi(mapAngleMPiToPi(jet2.phi() - jet2.phi()));  //vector from 1 to 2.                                             
+    const double dmag2= deta*deta + dphi*dphi;
+    if (dmag2 < 1e-3) return -1;         //no resolution                                                                                                    
+    const double dmag = sqrt(dmag2);
+    deta /= dmag;                        //now it's a unit vector from 1 to 2                                                                               
+    dphi /= dmag;
+    double vx,vy,pt,project;
+    foreach (const fastjet::PseudoJet & c, j.constituents()) {
+      pt = c.perp();
+      sumpt += pt;
+      vx = c.eta() - jet1.eta();
+      vy = mapAngleMPiToPi(c.phi()-jet1.phi());
+      project = vx*deta + vy*dphi;
+      if (((project > 0) && (project < dmag))) { //nearest distance to segment is perp. projection
+	dipolarity += pt * pow(vx*dphi - vy*deta,2);
+      } else {
+	if (project > 0) { //closer to jet2, so move the origin                                                                                             
+	  vx = c.eta() - jet2.eta();
+	  vy = mapAngleMPiToPi(c.phi()-jet2.phi());
+	}
+	dipolarity += pt * (vx*vx + vy+vy);  //nearest distance is radial vector to origin                                                                  
+      }
+    }//constit loop                                                                                                                                         
+    if (sumpt < 1e-3) return -1;
+    return dipolarity/(sumpt*dmag2);
   }
 
   ///\vec{t} ===\Sum_{i\in J} |r_i|p_{Ti}/p_{TJ}\vec{r_i}
@@ -343,7 +361,7 @@ namespace Rivet {
       case DURHAM:
 	return fastjet::ee_kt_algorithm;
       default: 
-	cout << "No plugin jet algorithms accepted for Filter! Prepare to die!" << endl;
+	MSG_ERROR("No plugin jet algorithms accepted for Filter! Prepare to die!");
 	return fastjet::undefined_jet_algorithm;
       }
   }
@@ -384,7 +402,6 @@ namespace Rivet {
   }
   PseudoJets FastJets::GetAxes(unsigned int n_jets, 
 		PseudoJets& inputJets, JetAlgName subjet_def, double subR) const {
-
     assert(clusterSeq());
     //sanity check
     if (inputJets.size() < n_jets) {
@@ -718,10 +735,7 @@ namespace Rivet {
 	  }
 	return newdummy;
         }
-
-
       else return dummyp;
       }
   }
-
 }
