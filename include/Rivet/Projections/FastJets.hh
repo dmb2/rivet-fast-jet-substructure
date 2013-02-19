@@ -77,12 +77,11 @@ namespace Rivet {
 
   public:
     /// Wrapper enum for selected Fastjet jet algorithms.
-    enum JetAlgName { KT, CAM, DURHAM, ANTIKT, SISCONE,
-                      PXCONE,
-                      ATLASCONE, CMSCONE,
-                      CDFJETCLU, CDFMIDPOINT, D0ILCONE,
-                      JADE,  TRACKJET };
-
+    enum JetAlgName { KT, CAM, SISCONE, ANTIKT,
+		      PXCONE,
+		      ATLASCONE, CMSCONE,
+		      CDFJETCLU, CDFMIDPOINT, D0ILCONE,
+		      JADE, DURHAM, TRACKJET };
 
     /// @name Constructors etc.
     //@{
@@ -151,7 +150,7 @@ namespace Rivet {
     }
 
     /// Calculate Dipolarity of Jet
-    double Dipolarity(const fastjet::PseudoJet &j);
+    double Dipolarity(const fastjet::PseudoJet &j) const;
     // Calculate Pull of Jet
     std::pair<double,double> JetPull(const fastjet::PseudoJet &j, const double ptmin=-1*GeV) const;
     /// Calculate JetCharge

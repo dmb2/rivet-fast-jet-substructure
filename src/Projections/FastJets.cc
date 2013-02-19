@@ -12,42 +12,43 @@ namespace Rivet {
     setName("FastJets");
     MSG_DEBUG("R parameter = " << rparameter);
     MSG_DEBUG("Seed threshold = " << seed_threshold);
-    if(alg < SISCONE) {
-      _jdef = fastjet::JetDefinition(setJetAlgorithm(alg),fastjet::E_scheme);
-    }
-    else {
-      switch (alg){
-      case SISCONE:
-	_plugin.reset(new fastjet::SISConePlugin(rparameter, 0.75));
-	break;
-      case PXCONE:{
-	string msg = "PxCone currently not supported, since FastJet doesn't install it by default. ";
-	msg += "Please notify the Rivet authors if this behaviour should be changed.";
-	throw Error(msg);
+   if (alg == KT) {
+      _jdef = fastjet::JetDefinition(fastjet::kt_algorithm, rparameter, fastjet::E_scheme);
+    } else if (alg == CAM) {
+      _jdef = fastjet::JetDefinition(fastjet::cambridge_algorithm, rparameter, fastjet::E_scheme);
+    } else if (alg == ANTIKT) {
+      _jdef = fastjet::JetDefinition(fastjet::antikt_algorithm, rparameter, fastjet::E_scheme);
+    } else if (alg == DURHAM) {
+      _jdef = fastjet::JetDefinition(fastjet::ee_kt_algorithm, fastjet::E_scheme);
+    } else {
+      // Plugins:
+      if (alg == SISCONE) {
+        const double OVERLAP_THRESHOLD = 0.75;
+        _plugin.reset(new fastjet::SISConePlugin(rparameter, OVERLAP_THRESHOLD));
+      } else if (alg == PXCONE) {
+        string msg = "PxCone currently not supported, since FastJet doesn't install it by default. ";
+        msg += "Please notify the Rivet authors if this behaviour should be changed.";
+        throw Error(msg);
+        //_plugin.reset(new fastjet::PxConePlugin(rparameter));
+      } else if (alg == ATLASCONE) {
+        const double OVERLAP_THRESHOLD = 0.5;
+        _plugin.reset(new fastjet::ATLASConePlugin(rparameter, seed_threshold, OVERLAP_THRESHOLD));
+      } else if (alg == CMSCONE) {
+        _plugin.reset(new fastjet::CMSIterativeConePlugin(rparameter, seed_threshold));
+      } else if (alg == CDFJETCLU) {
+        const double OVERLAP_THRESHOLD = 0.75;
+        _plugin.reset(new fastjet::CDFJetCluPlugin(rparameter, OVERLAP_THRESHOLD, seed_threshold));
+      } else if (alg == CDFMIDPOINT) {
+        const double OVERLAP_THRESHOLD = 0.5;
+        _plugin.reset(new fastjet::CDFMidPointPlugin(rparameter, OVERLAP_THRESHOLD, seed_threshold));
+      } else if (alg == D0ILCONE) {
+        const double min_jet_Et = 6.0;
+        _plugin.reset(new fastjet::D0RunIIConePlugin(rparameter, min_jet_Et));
+      } else if (alg == JADE) {
+        _plugin.reset(new fastjet::JadePlugin());
+      } else if (alg == TRACKJET) {
+        _plugin.reset(new fastjet::TrackJetPlugin(rparameter));
       }
-	break;
-      case ATLASCONE:
-	_plugin.reset(new fastjet::ATLASConePlugin(rparameter, seed_threshold, 0.5));
-	break;
-      case CMSCONE:
-	_plugin.reset(new fastjet::CMSIterativeConePlugin(rparameter, seed_threshold));
-	break;	
-      case CDFJETCLU:
-	_plugin.reset(new fastjet::CDFJetCluPlugin(rparameter, 0.75, seed_threshold));
-	break;
-      case CDFMIDPOINT:
-	_plugin.reset(new fastjet::CDFMidPointPlugin(rparameter, 0.5, seed_threshold));
-	break;
-      case D0ILCONE:
-	_plugin.reset(new fastjet::D0RunIIConePlugin(rparameter, 6.0));
-	break;
-      case JADE:
-	_plugin.reset(new fastjet::JadePlugin());
-	break;
-      case TRACKJET:
-	_plugin.reset(new fastjet::TrackJetPlugin(rparameter));
-	break;
-      }      
       _jdef = fastjet::JetDefinition(_plugin.get());
     }
   }
@@ -158,7 +159,7 @@ namespace Rivet {
   }
 
  /// D===1/R_{12} \Sum_{i\in J} p_{Ti}/p_{TJ} R_i
-  double Dipolarity(const fastjet::PseudoJet &j)  {
+  double FastJets::Dipolarity(const fastjet::PseudoJet &j) const {
     fastjet::PseudoJet jet1,jet2;
     if (not (j.has_parents(jet1,jet2))) return -1;//not ideal axes                                                                                          
     double dipolarity(0.0);
@@ -184,7 +185,7 @@ namespace Rivet {
 	  vx = c.eta() - jet2.eta();
 	  vy = mapAngleMPiToPi(c.phi()-jet2.phi());
 	}
-	dipolarity += pt * (vx*vx + vy+vy);  //nearest distance is radial vector to origin                                                                  
+	dipolarity += pt * (vx*vx + vy*vy);  //nearest distance is radial vector to origin                                                                  
       }
     }//constit loop                                                                                                                                         
     if (sumpt < 1e-3) return -1;
